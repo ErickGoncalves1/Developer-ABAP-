@@ -1,0 +1,68 @@
+*REPORT ZFORNECEDORERICK*
+*-------------------------------------*
+*DATA DA CRIAÇÃO 2023-08-07*
+*-------------------------------------*
+*CRIADO POR: ERICK FERNANDES*
+*-------------------------------------*
+
+
+
+*NOTA: NOME DA TABELA LFA1 E NOME DO CAMPO LIFNR*
+*SEMPRE QUE FOR USAR O: SELECT-OPTIONS S_LIFNR FOR LFA1-LIFNR. TEMOS QUE USAR O: TABLES LFA1.*
+*PARAMETERS p_lifnr TYPE LFA1-LIFNR.*
+*WHERE:       ONDE*
+*INTO TABLE:  NA TABELA*
+*IN:          EM*
+*VOU NO BANCO 'SELECT' E GRAVO O RESULTADO NA MEMORIA*
+*INTO TABLE ti_lfa1: É UMA TABELA INTERNA QUE GRAVA AS INFORMAÇÕES*
+
+REPORT zfornecedorerick.
+
+*-------------------------------------*
+*   TABLES
+*-------------------------------------*
+TABLES lfa1.
+
+*-------------------------------------*
+*   TYPES
+*-------------------------------------*
+TYPES: BEGIN OF ty_lfa1,
+         lifnr TYPE lfa1-lifnr,
+         name1 TYPE lfa1-name1,
+         ort01 TYPE lfa1-ort01,
+         stras TYPE lfa1-stras,
+       END OF ty_lfa1.
+
+*-------------------------------------*
+*   WORKAREA
+*-------------------------------------*
+DATA wa_lfa1 TYPE ty_lfa1.
+
+*-------------------------------------*
+*   TABELA INTERNA
+*-------------------------------------*
+DATA ti_lfa1 TYPE TABLE OF ty_lfa1.
+
+*-------------------------------------*
+*   TELA DE SELEÇÃO
+*-------------------------------------*
+select-options s_lifnr for lfa1-lifnr.
+
+START-OF-SELECTION.
+
+*OPEN SQL*
+  SELECT lifnr
+         name1
+         ort01
+         stras
+         FROM lfa1
+         INTO TABLE ti_lfa1
+         WHERE lifnr IN s_lifnr.
+    
+    LOOP AT TI_LFA1 INTO wa_lfa1.
+      
+      WRITE: / wa_lfa1-lifnr,
+               wa_lfa1-name1,
+               wa_lfa1-ort01,
+               wa_lfa1-stras.
+ENDLOOP.
