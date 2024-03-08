@@ -1,0 +1,134 @@
+REPORT ZBATCH_INPUT_EFG.
+
+*---------------*
+* ESTRUTURA
+*---------------*
+TYPES: BEGIN OF TY_USER,
+         USUARIO(12) TYPE C,
+         DEPTO(40)   TYPE C,
+       END OF TY_USER.
+
+*---------------*
+* WORAERA
+*---------------*
+DATA: WA_USER    TYPE TY_USER,
+      WA_BDCDATA TYPE BDCDATA,
+      WA_MSG     TYPE BDCMSGCOLL,
+      WA_PARAM   TYPE CTU_PARAMS.
+
+*---------------*
+* TABELA INTERNA
+*---------------*
+DATA: TI_USER    TYPE TABLE OF TY_USER,
+      TI_BDCDATA TYPE TABLE OF BDCDATA,
+      TI_MSG     TYPE TABLE OF BDCMSGCOLL.
+*---------------------------------------------------------------------------*
+* SELECTION SCREEN
+*---------------------------------------------------------------------------*
+PARAMETERS P_FILE TYPE STRING.
+
+*---------------------------------------------------------------------------*
+* AT SELETION SCREEN => EVENT
+*---------------------------------------------------------------------------*
+AT SELECTION-SCREEN ON  VALUE-REQUEST FOR P_FILE.
+
+  CALL FUNCTION 'GUI_FILE_LOAD_DIALOG'
+    EXPORTING
+      WINDOW_TITLE      = 'Localizar Arquivo'
+      DEFAULT_EXTENSION = 'TXT'
+      DEFAULT_FILE_NAME = P_FILE
+    IMPORTING
+      FULLPATH          = P_FILE.
+
+*---------------------------------------------------------------------------*
+* STRAT-OF-SELETION => EVENT
+*---------------------------------------------------------------------------*
+START-OF-SELECTION.
+
+  CALL FUNCTION 'GUI_UPLOAD'
+    EXPORTING
+      FILENAME                = P_FILE
+    TABLES
+      DATA_TAB                = TI_USER
+    EXCEPTIONS
+      FILE_OPEN_ERROR         = 1
+      FILE_READ_ERROR         = 2
+      NO_BATCH                = 3
+      GUI_REFUSE_FILETRANSFER = 4
+      INVALID_TYPE            = 5
+      NO_AUTHORITY            = 6
+      UNKNOWN_ERROR           = 7
+      BAD_DATA_FORMAT         = 8
+      HEADER_NOT_ALLOWED      = 9
+      SEPARATOR_NOT_ALLOWED   = 10
+      HEADER_TOO_LONG         = 11
+      UNKNOWN_DP_ERROR        = 12
+      ACCESS_DENIED           = 13
+      DP_OUT_OF_MEMORY        = 14
+      DISK_FULL               = 15
+      DP_TIMEOUT              = 16
+      OTHERS                  = 17.
+
+  LOOP AT TI_USER INTO WA_USER.
+
+    PERFORM F_PREENDHE_BDC USING: 'SAPLSUID_MAINTENANCE'                '1050'                                                  'X',
+                                  'BDC_CURSOR'                          'SUID_ST_BNAME-BNAME'                                   ' ',
+                                  'BDC_OKCODE'                          '=CHAN'                                                 ' ',
+                                  'SUID_ST_BNAME-BNAME'                 WA_USER-USUARIO                                         ' '.
+
+    PERFORM F_PREENDHE_BDC USING: 'SAPLSUID_MAINTENANCE'                '1100'                                                  'X',
+                                  'BDC_OKCODE'                          '=UPD'                                                  ' ',
+                                  'BDC_SUBSCR'                          'SAPLSUID_MAINTENANCE                    1900MAINAREA'  ' ',
+                                  'BDC_CURSOR'                          'SUID_ST_NODE_WORKPLACE-DEPARTMENT'                     ' ',
+                                  'SUID_ST_NODE_PERSON_NAME-NAME_LAST'  WA_USER-USUARIO                                         ' ',
+                                  'SUID_ST_NODE_WORKPLACE-DEPARTMENT'   WA_USER-DEPTO                                           ' '.
+  ENDLOOP.
+
+  PERFORM F_PREENDHE_BDC USING: 'SAPLSUID_MAINTENANCE'                '1050'                                                  'X',
+                                'BDC_OKCODE'                          '=BACH'                                                 ' '.
+
+
+  WA_PARAM-DISMODE  = 'N'.  "A - VISIVEL - DEV / 'N' - BACKGROUND - PRODUÇÃO
+  WA_PARAM-RACOMMIT = 'X'.
+
+  CALL TRANSACTION 'SU01' USING TI_BDCDATA
+                          OPTIONS FROM WA_PARAM
+                          MESSAGES INTO TI_MSG.
+
+  DATA VL_TEXTO TYPE STRING.
+
+  LOOP AT TI_MSG INTO WA_MSG.
+
+    CALL FUNCTION 'MESSAGE_TEXT_BUILD'
+      EXPORTING
+        MSGID               = WA_MSG-MSGID
+        MSGNR               = WA_MSG-MSGNR
+        MSGV1               = WA_MSG-MSGV1
+        MSGV2               = WA_MSG-MSGV2
+        MSGV3               = WA_MSG-MSGV3
+        MSGV4               = WA_MSG-MSGV4
+      IMPORTING
+        MESSAGE_TEXT_OUTPUT = VL_TEXTO.
+
+    WRITE / VL_TEXTO.
+
+  ENDLOOP.
+*&---------------------------------------------------------------------*
+*&      Form  F_PREENDHE_BDC
+*&---------------------------------------------------------------------*
+*       PREENCHE O BDCDATA
+*----------------------------------------------------------------------*
+FORM F_PREENDHE_BDC USING P1 P2 P3.
+
+  IF P3 = 'X'.
+    WA_BDCDATA-PROGRAM    = P1.
+    WA_BDCDATA-DYNPRO     = P2.
+    WA_BDCDATA-DYNBEGIN   = P3.
+  ELSE.
+    WA_BDCDATA-FNAM       = P1.
+    WA_BDCDATA-FVAL       = P2.
+  ENDIF.
+  APPEND WA_BDCDATA TO TI_BDCDATA.
+  CLEAR WA_BDCDATA.
+
+ENDFORM.
